@@ -3,173 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Calculadora de Compras</title>
+    <title>Minhas Listas de Compras</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap');
-        body { font-family: 'Inter', sans-serif; }
-        .item-row { transition: all 0.2s ease; }
-        .item-row:hover { background-color: #f9fafb; }
+        body { font-family: 'Inter', sans-serif; -webkit-tap-highlight-color: transparent; }
+        .active-list { border-left: 4px solid #4f46e5; background-color: #f5f3ff; }
+        .fade-in { animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
     </style>
 </head>
-<body class="bg-gray-50 min-h-screen pb-20">
+<body class="bg-gray-50 min-h-screen">
 
-    <!-- Header -->
-    <header class="bg-indigo-600 text-white p-6 shadow-md mb-6">
-        <div class="max-w-2xl mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold flex items-center gap-2">
+    <!-- Sidebar / Menu de Listas (Overlay para mobile) -->
+    <div id="sidebar" class="fixed inset-y-0 left-0 w-64 bg-white shadow-2xl transform -translate-x-full transition-transform duration-300 z-50 overflow-y-auto">
+        <div class="p-5 border-b flex justify-between items-center">
+            <h2 class="font-bold text-gray-700">Minhas Listas</h2>
+            <button onclick="toggleSidebar()" class="text-gray-500">
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="Scanner 3 3 0 013 3v12a3 3 0 01-3 3H6a3 3 0 01-3-3V6a3 3 0 013-3h12zM16 8l-4 4m0 0l-4-4m4 4v8" />
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
                 </svg>
-                Minha Compra
-            </h1>
-            <button onclick="clearAll()" class="text-sm bg-indigo-700 hover:bg-indigo-800 px-3 py-1 rounded transition">Limpar Tudo</button>
+            </button>
+        </div>
+        <div class="p-4 space-y-2" id="listsMenu">
+            <!-- As listas serão injetadas aqui -->
+        </div>
+        <div class="p-4 border-t mt-4">
+            <button onclick="createNewList()" class="w-full bg-indigo-100 text-indigo-700 font-semibold py-2 rounded-lg hover:bg-indigo-200 transition flex items-center justify-center gap-2">
+                <span>+ Nova Lista</span>
+            </button>
+        </div>
+    </div>
+
+    <!-- Background Overlay para Sidebar -->
+    <div id="overlay" onclick="toggleSidebar()" class="fixed inset-0 bg-black opacity-50 z-40 hidden"></div>
+
+    <!-- Main Content -->
+    <header class="bg-indigo-600 text-white p-4 shadow-md sticky top-0 z-30">
+        <div class="max-w-2xl mx-auto flex justify-between items-center">
+            <button onclick="toggleSidebar()" class="p-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+            </button>
+            <h1 id="currentListTitle" class="text-lg font-bold truncate px-2">Minha Compra</h1>
+            <button onclick="deleteCurrentList()" class="text-indigo-200 hover:text-white p-1">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                </svg>
+            </button>
         </div>
     </header>
 
-    <main class="max-w-2xl mx-auto px-4">
-        <!-- Add Item Form -->
-        <div class="bg-white rounded-xl shadow-sm p-4 mb-6 border border-gray-100">
-            <h2 class="text-gray-700 font-semibold mb-4">Adicionar Novo Item</h2>
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-                <div class="md:col-span-2">
-                    <input type="text" id="itemName" placeholder="Nome do produto" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                    <input type="number" id="itemQty" placeholder="Qtd" value="1" min="1" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
-                    <input type="number" id="itemPrice" placeholder="Preço R$" step="0.01" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+    <main class="max-w-2xl mx-auto p-4 space-y-6 pb-24">
+        
+        <!-- Formulário de Adição -->
+        <div class="bg-white rounded-xl shadow-sm p-4 border border-gray-100">
+            <div class="grid grid-cols-1 gap-3">
+                <input type="text" id="itemName" placeholder="Produto" class="w-full p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                <div class="flex gap-2">
+                    <input type="number" id="itemQty" placeholder="Qtd" value="1" min="1" class="w-1/3 p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
+                    <input type="number" id="itemPrice" placeholder="Preço R$" step="0.01" class="flex-1 p-3 bg-gray-50 border border-gray-200 rounded-lg focus:ring-2 focus:ring-indigo-500 outline-none">
                 </div>
                 <button onclick="addItem()" class="w-full bg-indigo-600 text-white font-bold py-3 rounded-lg hover:bg-indigo-700 transition active:scale-95">
-                    Adicionar
+                    Adicionar Item
                 </button>
             </div>
         </div>
 
-        <!-- Items List -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-            <div id="itemList" class="divide-y divide-gray-100">
-                <!-- Items will be injected here -->
-                <div id="emptyMessage" class="p-8 text-center text-gray-400 italic">
-                    Nenhum item adicionado ainda.
-                </div>
-            </div>
+        <!-- Lista de Itens -->
+        <div id="itemList" class="bg-white rounded-xl shadow-sm border border-gray-100 divide-y divide-gray-100 overflow-hidden">
+            <!-- Injetado via JS -->
         </div>
 
-        <!-- Summary Section -->
-        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-3">
-            <div class="flex justify-between text-gray-600">
-                <span>Subtotal</span>
-                <span id="subtotal">R$ 0,00</span>
-            </div>
-            <div class="flex justify-between items-center text-gray-600">
-                <span>Desconto (%)</span>
-                <input type="number" id="discountInput" oninput="updateTotals()" value="0" min="0" max="100" class="w-16 text-right p-1 bg-gray-50 border border-gray-200 rounded">
-            </div>
-            <hr class="border-gray-50">
-            <div class="flex justify-between text-xl font-bold text-gray-800">
-                <span>Total Final</span>
-                <span id="totalFinal" class="text-indigo-600">R$ 0,00</span>
+        <!-- Totais Fixos no Rodapé -->
+        <div class="fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)]">
+            <div class="max-w-2xl mx-auto flex justify-between items-center">
+                <div>
+                    <div class="text-xs text-gray-500 flex items-center gap-1">
+                        Desconto %: 
+                        <input type="number" id="discountInput" oninput="updateTotals()" value="0" min="0" class="w-12 border rounded px-1 text-center">
+                    </div>
+                    <div id="subtotal" class="text-xs text-gray-400">Sub: R$ 0,00</div>
+                </div>
+                <div class="text-right">
+                    <div class="text-xs text-gray-500 uppercase font-bold tracking-wider">Total Final</div>
+                    <div id="totalFinal" class="text-2xl font-bold text-indigo-600 leading-tight text-right">R$ 0,00</div>
+                </div>
             </div>
         </div>
     </main>
 
-    <!-- UI Notification -->
-    <div id="toast" class="fixed bottom-6 left-1/2 transform -translate-x-1/2 bg-gray-800 text-white px-6 py-3 rounded-full opacity-0 pointer-events-none transition-opacity duration-300 shadow-xl text-sm">
-        Item adicionado!
-    </div>
-
     <script>
-        let items = [];
+        // Estado da Aplicação
+        let appState = {
+            lists: [
+                { id: Date.now(), name: "Mercado", items: [], discount: 0 }
+            ],
+            activeListId: null
+        };
 
-        function showToast(message) {
-            const toast = document.getElementById('toast');
-            toast.textContent = message;
-            toast.classList.remove('opacity-0');
-            setTimeout(() => toast.classList.add('opacity-0'), 2000);
+        // Carregar dados iniciais
+        function init() {
+            const saved = localStorage.getItem('compra_app_data');
+            if (saved) {
+                appState = JSON.parse(saved);
+            } else {
+                appState.activeListId = appState.lists[0].id;
+            }
+            
+            // Garantir que temos uma lista ativa válida
+            if (!appState.lists.find(l => l.id === appState.activeListId)) {
+                appState.activeListId = appState.lists[0]?.id || null;
+            }
+
+            renderMenu();
+            renderActiveList();
         }
 
+        function saveData() {
+            localStorage.setItem('compra_app_data', JSON.stringify(appState));
+        }
+
+        // Gestão da Sidebar
+        function toggleSidebar() {
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('overlay');
+            sidebar.classList.toggle('-translate-x-full');
+            overlay.classList.toggle('hidden');
+        }
+
+        // Gestão de Listas
+        function createNewList() {
+            const name = prompt("Nome da nova lista (ex: Cosméticos):");
+            if (name && name.trim()) {
+                const newList = {
+                    id: Date.now(),
+                    name: name.trim(),
+                    items: [],
+                    discount: 0
+                };
+                appState.lists.push(newList);
+                appState.activeListId = newList.id;
+                saveData();
+                renderMenu();
+                renderActiveList();
+                toggleSidebar();
+            }
+        }
+
+        function switchList(id) {
+            appState.activeListId = id;
+            saveData();
+            renderMenu();
+            renderActiveList();
+            toggleSidebar();
+        }
+
+        function deleteCurrentList() {
+            if (appState.lists.length <= 1) {
+                alert("Não podes apagar a única lista existente.");
+                return;
+            }
+            if (confirm("Apagar esta lista e todos os itens dela?")) {
+                appState.lists = appState.lists.filter(l => l.id !== appState.activeListId);
+                appState.activeListId = appState.lists[0].id;
+                saveData();
+                renderMenu();
+                renderActiveList();
+            }
+        }
+
+        // Lógica de Itens
         function addItem() {
+            const list = appState.lists.find(l => l.id === appState.activeListId);
             const name = document.getElementById('itemName').value;
             const qty = parseFloat(document.getElementById('itemQty').value);
             const price = parseFloat(document.getElementById('itemPrice').value);
 
-            if (!name || isNaN(qty) || isNaN(price) || qty <= 0 || price < 0) {
-                alert("Por favor, preencha todos os campos corretamente.");
-                return;
-            }
+            if (!name || isNaN(qty) || isNaN(price)) return;
 
-            const item = {
+            list.items.push({
                 id: Date.now(),
                 name,
                 qty,
-                price,
-                total: qty * price
-            };
+                price
+            });
 
-            items.push(item);
-            renderItems();
-            updateTotals();
-            showToast("Item adicionado!");
-
-            // Reset inputs
             document.getElementById('itemName').value = '';
-            document.getElementById('itemQty').value = '1';
             document.getElementById('itemPrice').value = '';
-            document.getElementById('itemName').focus();
-        }
-
-        function removeItem(id) {
-            items = items.filter(item => item.id !== id);
-            renderItems();
-            updateTotals();
-        }
-
-        function clearAll() {
-            if (items.length === 0) return;
-            if (confirm("Deseja realmente limpar toda a lista?")) {
-                items = [];
-                renderItems();
-                updateTotals();
-            }
-        }
-
-        function renderItems() {
-            const container = document.getElementById('itemList');
-            const emptyMsg = document.getElementById('emptyMessage');
             
-            if (items.length === 0) {
-                container.innerHTML = '';
-                container.appendChild(emptyMsg);
-                return;
-            }
+            saveData();
+            renderActiveList();
+        }
 
-            container.innerHTML = items.map(item => `
-                <div class="item-row p-4 flex justify-between items-center animate-fade-in">
-                    <div class="flex-1">
-                        <h3 class="font-semibold text-gray-800">${item.name}</h3>
-                        <p class="text-xs text-gray-500">${item.qty}x de R$ ${item.price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</p>
-                    </div>
-                    <div class="flex items-center gap-4">
-                        <span class="font-bold text-gray-700">R$ ${item.total.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
-                        <button onclick="removeItem(${item.id})" class="text-red-400 hover:text-red-600 p-2 rounded-full hover:bg-red-50 transition">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
-                                <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
-                            </svg>
-                        </button>
-                    </div>
-                </div>
+        function removeItem(itemId) {
+            const list = appState.lists.find(l => l.id === appState.activeListId);
+            list.items = list.items.filter(i => i.id !== itemId);
+            saveData();
+            renderActiveList();
+        }
+
+        // Renderização
+        function renderMenu() {
+            const menu = document.getElementById('listsMenu');
+            menu.innerHTML = appState.lists.map(list => `
+                <button onclick="switchList(${list.id})" class="w-full text-left p-3 rounded-lg transition ${list.id === appState.activeListId ? 'active-list font-bold text-indigo-700' : 'text-gray-600 hover:bg-gray-100'}">
+                    ${list.name}
+                    <span class="block text-xs font-normal text-gray-400">${list.items.length} itens</span>
+                </button>
             `).join('');
         }
 
-        function updateTotals() {
-            const subtotal = items.reduce((sum, item) => sum + item.total, 0);
-            const discountPercent = parseFloat(document.getElementById('discountInput').value) || 0;
-            const discountAmount = subtotal * (discountPercent / 100);
-            const finalTotal = subtotal - discountAmount;
+        function renderActiveList() {
+            const list = appState.lists.find(l => l.id === appState.activeListId);
+            if (!list) return;
 
-            document.getElementById('subtotal').textContent = `R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
-            document.getElementById('totalFinal').textContent = `R$ ${Math.max(0, finalTotal).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('currentListTitle').textContent = list.name;
+            document.getElementById('discountInput').value = list.discount;
+
+            const container = document.getElementById('itemList');
+            if (list.items.length === 0) {
+                container.innerHTML = `<div class="p-10 text-center text-gray-400 italic">Vazio. Adicione o seu primeiro item acima.</div>`;
+            } else {
+                container.innerHTML = list.items.map(item => `
+                    <div class="p-4 flex justify-between items-center fade-in">
+                        <div>
+                            <div class="font-semibold text-gray-800">${item.name}</div>
+                            <div class="text-xs text-gray-500">${item.qty} x R$ ${item.price.toLocaleString('pt-BR', {minimumFractionDigits: 2})}</div>
+                        </div>
+                        <div class="flex items-center gap-3">
+                            <span class="font-bold text-gray-700">R$ ${(item.qty * item.price).toLocaleString('pt-BR', {minimumFractionDigits: 2})}</span>
+                            <button onclick="removeItem(${item.itemId || item.id})" class="text-red-300 hover:text-red-500">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                `).join('');
+            }
+            updateTotals();
         }
+
+        function updateTotals() {
+            const list = appState.lists.find(l => l.id === appState.activeListId);
+            if (!list) return;
+
+            const discountVal = parseFloat(document.getElementById('discountInput').value) || 0;
+            list.discount = discountVal;
+
+            const subtotal = list.items.reduce((acc, item) => acc + (item.qty * item.price), 0);
+            const total = subtotal * (1 - (list.discount / 100));
+
+            document.getElementById('subtotal').textContent = `Sub: R$ ${subtotal.toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            document.getElementById('totalFinal').textContent = `R$ ${Math.max(0, total).toLocaleString('pt-BR', {minimumFractionDigits: 2})}`;
+            saveData();
+        }
+
+        // Inicializar
+        init();
     </script>
 </body>
 </html>
